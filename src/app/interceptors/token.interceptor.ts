@@ -57,5 +57,6 @@ export class TokenInterceptor implements HttpInterceptor {
         switchMap(() => this.addToken(request, next))
       )
     }
+    return next.handle(request);
   }
 }
