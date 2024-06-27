@@ -1,17 +1,20 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '@environments/environment';
-import { switchMap, tap } from 'rxjs';
+import { BehaviorSubject, switchMap, tap } from 'rxjs';
 import { TokenService } from './token.service';
 import { AuthModule } from '@auth/auth.module';
 import { ResponseLogin } from '@models/auth.model';
+import { User } from '@models/user.model';
+import { checkToken } from '@interceptors/token.interceptor';
 
 @Injectable({
   providedIn: 'root'
 })
 export class AuthService {
 
-  apiURL = environment.API_URL
+  apiURL = environment.API_URL;
+  user$ = new BehaviorSubject<User | null>(null);
 
   constructor(
     private http: HttpClient,
@@ -28,7 +31,8 @@ export class AuthService {
     })
     .pipe(
       tap(response => {
-        this.tokenService.saveToken(response.access_token)
+        this.tokenService.saveToken(response.access_token);
+        this.tokenService.saveRefreshToken(response.refresh_token);
       })
     )
   }
@@ -66,7 +70,36 @@ export class AuthService {
     })
   }
 
+  getProfile(){
+    //const token = this.tokenService.getToken();
+
+    return this.http.get<User>(`${this.apiURL}/api/v1/auth/profile`, {
+      context: checkToken()
+      /*
+      headers:{
+        Authorization: `Bearer ${token}`}
+        */
+      }
+    ).pipe(
+      tap(user => {
+        this.user$.next(user)
+      })
+    )
+  }
+
   logout(){
     this.tokenService.removeToken();
+  }
+
+  refreshToken(refreshToken: string){
+    return this.http.post<ResponseLogin>(`${this.apiURL}/api/v1/auth/refresh-token`, {
+      refreshToken
+    })
+    .pipe(
+      tap(response => {
+        this.tokenService.saveToken(response.access_token)
+        this.tokenService.saveRefreshToken(response.refresh_token)
+      })
+    )
   }
 }
